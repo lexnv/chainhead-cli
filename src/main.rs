@@ -185,6 +185,8 @@ async fn subscribe() -> Result<(), Box<dyn std::error::Error>> {
                 for hash in result.finalizedBlockHashes {
                     tracing::info!("  Finalized block hash: {:?}", hash);
 
+                    blocks.insert(hash.clone(), BlockState::Finalized);
+
                     let response: Box<RawValue> = client
                         .request("chainHead_v1_unpin", rpc_params![sub_id.clone(), hash])
                         .await?;
@@ -217,9 +219,23 @@ async fn subscribe() -> Result<(), Box<dyn std::error::Error>> {
                         tracing::info!("  - This is a new entry");
                         entry.insert(BlockState::New);
                     }
-                }
+                };
+
+                match blocks.entry(result.parentBlockHash.clone()) {
+                    std::collections::hash_map::Entry::Occupied(_) => {
+                        tracing::info!(
+                            "
+                            - parent blockwas reported
+                            ",
+                        );
+                    }
+                    std::collections::hash_map::Entry::Vacant(entry) => {
+                        panic!(" Parent block was never reported: {:?}", result);
+                    }
+                };
 
                 blocks.insert(result.blockHash.clone(), BlockState::New);
+
                 tracing::info!("\n");
             }
 
